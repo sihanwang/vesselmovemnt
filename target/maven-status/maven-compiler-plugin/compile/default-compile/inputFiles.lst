@@ -1,0 +1,10 @@
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\VTVesselLocationFileInputFormat.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateTable.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFile.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\VesselLocationRecordReader.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\Key_ShipIDAndRecordTime.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateNamespace.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\TextArrayWritable.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropNamespace.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFileWithHTable.java
+D:\mydoc\myjavaworkspace\VesselMovement\src\main\java\com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropTable.java

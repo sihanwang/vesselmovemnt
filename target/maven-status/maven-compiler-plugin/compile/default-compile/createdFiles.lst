@@ -1,0 +1,14 @@
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFileWithHTable$ImportMapper.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFile$Counters.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFile$ImportMapper.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\Key_ShipIDAndRecordTime.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFile.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\TextArrayWritable.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFileWithHTable$Counters.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\VTVesselLocationFileInputFormat.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\VesselLocationRecordReader.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropTable.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropNamespace.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\ImportVTLocationFromFileWithHTable.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateNamespace.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateTable.class
