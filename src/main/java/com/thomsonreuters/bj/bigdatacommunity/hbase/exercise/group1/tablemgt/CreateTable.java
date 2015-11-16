@@ -35,7 +35,7 @@ public class CreateTable {
 	      Bytes.toBytes("details"));
 	    desc.addFamily(coldef);
 
-	    admin.createTable(desc,Bytes.toBytes("00000000000000000000000000"),Bytes.toBytes("99999999999999999999999999"),8);
+	    admin.createTable(desc,Bytes.toBytes("00000000000000000000000000"),Bytes.toBytes("99999999999999999999999999"),4);
 	    // ^^ CreateTableWithNamespaceExample
 
 	    boolean avail = admin.isTableAvailable(tableName);

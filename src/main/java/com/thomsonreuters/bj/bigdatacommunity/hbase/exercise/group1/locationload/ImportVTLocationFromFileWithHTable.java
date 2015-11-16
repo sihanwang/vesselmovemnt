@@ -32,9 +32,7 @@ import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-
-//export HADOOP_CLASSPATH=/home/hdev/8003662/hbase/lib/VesselMovement-0.0.1-SNAPSHOT.jar:/usr/lib/hbase/hbase-annotations-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-annotations-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-annotations.jar:/usr/lib/hbase/hbase-annotations-tests.jar:/usr/lib/hbase/hbase-checkstyle-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-checkstyle.jar:/usr/lib/hbase/hbase-client-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-client.jar:/usr/lib/hbase/hbase-common-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-common-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-common.jar:/usr/lib/hbase/hbase-common-tests.jar:/usr/lib/hbase/hbase-examples-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-examples.jar:/usr/lib/hbase/hbase-hadoop2-compat-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-hadoop2-compat-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-hadoop2-compat.jar:/usr/lib/hbase/hbase-hadoop2-compat-tests.jar:/usr/lib/hbase/hbase-hadoop-compat-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-hadoop-compat-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-hadoop-compat.jar:/usr/lib/hbase/hbase-hadoop-compat-tests.jar:/usr/lib/hbase/hbase-it-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-it-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-it.jar:/usr/lib/hbase/hbase-it-tests.jar:/usr/lib/hbase/hbase-prefix-tree-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-prefix-tree.jar:/usr/lib/hbase/hbase-protocol-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-protocol.jar:/usr/lib/hbase/hbase-rest-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-rest.jar:/usr/lib/hbase/hbase-server-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-server-1.0.0-cdh5.4.0-tests.jar:/usr/lib/hbase/hbase-server.jar:/usr/lib/hbase/hbase-server-tests.jar:/usr/lib/hbase/hbase-shell-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-shell.jar:/usr/lib/hbase/hbase-testing-util-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-testing-util.jar:/usr/lib/hbase/hbase-thrift-1.0.0-cdh5.4.0.jar:/usr/lib/hbase/hbase-thrift.jar
-//hadoop com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.ImportVTLocationFromFileWithHTable -libjars /home/hdev/8003662/hbase/lib/opencsv-2.3.jar /user/hdev/8003662
+//hadoop jar /root/hadoop_lib/VesselMovement-0.0.1-SNAPSHOT-jar-with-dependencies.jar -conf /etc/hadoop/conf/mapred-site.xml hackathoninput
 
 public class ImportVTLocationFromFileWithHTable extends Configured implements Tool {
 
@@ -158,7 +156,7 @@ public class ImportVTLocationFromFileWithHTable extends Configured implements To
 		try {
 			System.out.println(System.getProperty("java.library.path"));
 
-			int exitCode = ToolRunner.run(new ImportVTLocationFromFile(), args);
+			int exitCode = ToolRunner.run(new ImportVTLocationFromFileWithHTable(), args);
 			System.exit(exitCode);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
