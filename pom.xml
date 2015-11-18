@@ -33,7 +33,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.ImportVTLocationFromFileWithHTable</mainClass>
+							<mainClass>com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.reducersideload.ImportVTLocationFromFileWithReducer</mainClass>
 						</manifest>
 					</archive>
 					<descriptorRefs>
