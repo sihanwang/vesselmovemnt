@@ -74,7 +74,7 @@ public class ImportVTLocationFromFile extends Configured implements Tool {
 
 				VLongWritable shipid=key.getShipID();
 				VLongWritable pos_time=key.getRecordTime();
-				byte[] rowkey =Bytes.toBytes(padNum(shipid.get(),7) + padNum(pos_time.get(),19));
+				byte[] rowkey =Bytes.toBytes(padNum(shipid.get(),7) + padNum(Long.MAX_VALUE-pos_time.get(),19));
 				Put put = new Put(rowkey);
 				
 				Text[] content=(Text[])rowcontent.get();

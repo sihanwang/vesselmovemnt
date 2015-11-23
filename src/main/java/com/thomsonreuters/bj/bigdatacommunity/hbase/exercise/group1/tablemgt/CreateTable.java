@@ -27,19 +27,43 @@ public class CreateTable {
 
 		Connection connection = ConnectionFactory.createConnection(conf);
 	    Admin admin = connection.getAdmin();
+	    
+	    ////////////////////////////////////////////////////
+	    //create vessel location table
+	    //rowkey: shipid(10)+timestamp(19 desc)
 
-	    TableName tableName = TableName.valueOf("cdb_vessel", "vessel_location");
-	    HTableDescriptor desc = new HTableDescriptor(tableName);
+	    TableName tableName_location = TableName.valueOf("cdb_vessel", "vessel_location");
+	    HTableDescriptor desc_location = new HTableDescriptor(tableName_location);
 
-	    HColumnDescriptor coldef = new HColumnDescriptor(
+	    HColumnDescriptor coldef_location = new HColumnDescriptor(
 	      Bytes.toBytes("details"));
-	    desc.addFamily(coldef);
+	    coldef_location.setMaxVersions(1);
+	    desc_location.addFamily(coldef_location);
 
-	    admin.createTable(desc,Bytes.toBytes("00000000000000000000000000"),Bytes.toBytes("99999999999999999999999999"),4);
+	    admin.createTable(desc_location,Bytes.toBytes("00000000000000000000000000000"),Bytes.toBytes("99999999999999999999999999999"),7);
 	    // ^^ CreateTableWithNamespaceExample
 
-	    boolean avail = admin.isTableAvailable(tableName);
-	    System.out.println("Table available: " + avail);
+	    boolean avail_location = admin.isTableAvailable(tableName_location);
+	    System.out.println("The availability of table vessel_location: " + avail_location);
+	    
+	    
+	    ////////////////////////////////////////////////////	    
+	    //create vessel event table
+	    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(8)
+
+	    TableName tableName_event = TableName.valueOf("cdb_vessel", "vessel_event");
+	    HTableDescriptor desc_event = new HTableDescriptor(tableName_event);
+
+	    HColumnDescriptor coldef_event = new HColumnDescriptor(
+	      Bytes.toBytes("details"));
+	    coldef_event.setMaxVersions(1);
+	    desc_event.addFamily(coldef_event);
+
+	    admin.createTable(desc_event,Bytes.toBytes("0000000000000000000000000000000000000"),Bytes.toBytes("9999999999999999999999999999999999999"),7);
+	    // ^^ CreateTableWithNamespaceExample
+
+	    boolean avail_event = admin.isTableAvailable(tableName_event);
+	    System.out.println("The availability of table vessel_event: " + avail_event);
 	    
 	  }
 

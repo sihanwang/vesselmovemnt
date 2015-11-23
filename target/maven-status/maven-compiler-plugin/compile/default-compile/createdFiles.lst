@@ -2,6 +2,8 @@ com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reduce
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reducersideload\Key_ShipIDAndRecordTime.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reducersideload\ImportVTLocationFromFileWithReducer$Counters.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\VesselLocationRecordReader.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\type\VesselEvent.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\filter\TheFirstLocationBeforeFilter.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\Key_ShipIDAndRecordTime.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\ImportVTLocationFromFile$ImportMapper.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\VTVesselLocationFileInputFormat.class
@@ -12,9 +14,11 @@ com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reduce
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\TextArrayWritable.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\ImportVTLocationFromFile$Counters.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\loadwithtableoutputformat\ImportVTLocationFromFile.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\type\VesselLocation.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropTable.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reducersideload\TextArrayWritable.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\DropNamespace.class
+com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\filter\test\TestFilter.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\locationload\reducersideload\GroupComparator_ShipID.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateNamespace.class
 com\thomsonreuters\bj\bigdatacommunity\hbase\exercise\group1\tablemgt\CreateTable.class
