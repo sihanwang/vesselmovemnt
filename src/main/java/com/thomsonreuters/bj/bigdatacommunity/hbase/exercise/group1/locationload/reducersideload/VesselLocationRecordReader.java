@@ -5,6 +5,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
+import java.text.DateFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 
@@ -15,7 +16,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
-
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.VLongWritable;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -27,7 +27,8 @@ import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit;
 
 public class VesselLocationRecordReader extends RecordReader<Key_ShipIDAndRecordTime, TextArrayWritable> {
 
-	private static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	private static DateFormat rawformatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+
 	private Key_ShipIDAndRecordTime key= new Key_ShipIDAndRecordTime();
 	private TextArrayWritable value = new TextArrayWritable();
 	private boolean ReachEnd = false;
@@ -136,7 +137,7 @@ public class VesselLocationRecordReader extends RecordReader<Key_ShipIDAndRecord
 				String recordTime=nextrow[21].trim().substring(0, 19);
 				
 				ParsePosition pos = new ParsePosition(0);
-				long record_time=formatter.parse(recordTime, pos).getTime();
+				long record_time=rawformatter.parse(recordTime, pos).getTime();
 				
 				key.set(new VLongWritable(shipID), new VLongWritable(record_time));
 				

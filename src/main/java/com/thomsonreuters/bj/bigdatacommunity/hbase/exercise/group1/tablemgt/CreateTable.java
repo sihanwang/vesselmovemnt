@@ -49,7 +49,8 @@ public class CreateTable {
 	    
 	    ////////////////////////////////////////////////////	    
 	    //create vessel event table
-	    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(8)
+	    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(10)
+	    //qualifier:entertime,entercoordinates,exittime,exitcoordinates,destination
 
 	    TableName tableName_event = TableName.valueOf("cdb_vessel", "vessel_event");
 	    HTableDescriptor desc_event = new HTableDescriptor(tableName_event);
@@ -59,7 +60,7 @@ public class CreateTable {
 	    coldef_event.setMaxVersions(1);
 	    desc_event.addFamily(coldef_event);
 
-	    admin.createTable(desc_event,Bytes.toBytes("0000000000000000000000000000000000000"),Bytes.toBytes("9999999999999999999999999999999999999"),7);
+	    admin.createTable(desc_event,Bytes.toBytes("000000000000000000000000000000000000000"),Bytes.toBytes("999999999999999999999999999999999999999"),7);
 	    // ^^ CreateTableWithNamespaceExample
 
 	    boolean avail_event = admin.isTableAvailable(tableName_event);
