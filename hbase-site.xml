@@ -88,7 +88,7 @@
   </property>
   <property>
     <name>hbase.zookeeper.quorum</name>
-    <value>dsj-s7,dsj-s8,dsj-s9</value>
+    <value>dsj-s1,dsj-s6,dsj-s3,dsj-s11,dsj-s13</value>
   </property>
   <property>
     <name>hbase.zookeeper.property.clientPort</name>

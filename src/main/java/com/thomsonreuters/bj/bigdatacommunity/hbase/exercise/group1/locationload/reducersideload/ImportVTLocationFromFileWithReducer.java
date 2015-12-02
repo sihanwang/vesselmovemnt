@@ -73,6 +73,7 @@ import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Point;
 import com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.type.VesselZone;
 
+//java -classpath $(hadoop classpath) com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.reducersideload.ImportVTLocationFromFileWithReducer -conf /etc/hbase/conf/hbase-site.xml -files VesselZone 8003662/vessellocation_small
 //hadoop jar VesselMovement-0.0.1-SNAPSHOT-jar-with-dependencies.jar -files VesselZone 8003662/vessellocation_small
 
 public class ImportVTLocationFromFileWithReducer extends Configured implements
@@ -666,7 +667,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		job.setGroupingComparatorClass(GroupComparator_ShipID.class);
 
 		job.setReducerClass(ImportReducer.class);
-		job.setNumReduceTasks(4);
+		job.setNumReduceTasks(8);
 
 		job.setOutputFormatClass(NullOutputFormat.class);
 
@@ -996,7 +997,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 	public static void main(String[] args) {
 
 		try {
-			System.out.println(System.getProperty("java.library.path"));
 
 			int exitCode = ToolRunner.run(
 					new ImportVTLocationFromFileWithReducer(), args);
