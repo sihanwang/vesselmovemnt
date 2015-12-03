@@ -645,8 +645,8 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 	public int run(String[] args) throws Exception {
 		// TODO Auto-generated method stub
-		if (args.length != 1) {
-			System.out.println("please input file location");
+		if (args.length != 2) {
+			System.out.println("please input file location and reduce job number");
 			return -1;
 		}
 		// TODO Auto-generated method stub
