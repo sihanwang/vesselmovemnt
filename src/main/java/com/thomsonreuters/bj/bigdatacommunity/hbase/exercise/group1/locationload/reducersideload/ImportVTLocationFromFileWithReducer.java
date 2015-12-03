@@ -667,7 +667,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		job.setGroupingComparatorClass(GroupComparator_IMO.class);
 
 		job.setReducerClass(ImportReducer.class);
-		job.setNumReduceTasks(Integer.parseInt(args[0]));
+		job.setNumReduceTasks(Integer.parseInt(args[1]));
 
 		job.setOutputFormatClass(NullOutputFormat.class);
 
