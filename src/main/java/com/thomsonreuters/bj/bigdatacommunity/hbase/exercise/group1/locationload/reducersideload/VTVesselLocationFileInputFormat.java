@@ -13,7 +13,7 @@ import org.apache.hadoop.mapreduce.lib.input.CombineFileRecordReader;
 import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit; 
 
 
-public class VTVesselLocationFileInputFormat extends CombineFileInputFormat<Key_ShipIDAndRecordTime, TextArrayWritable> {
+public class VTVesselLocationFileInputFormat extends CombineFileInputFormat<Key_IMOAndRecordTime, TextArrayWritable> {
 
 	public VTVesselLocationFileInputFormat(){
 		super();
@@ -28,10 +28,10 @@ public class VTVesselLocationFileInputFormat extends CombineFileInputFormat<Key_
 	}
 
 	@Override
-	public RecordReader<Key_ShipIDAndRecordTime, TextArrayWritable> createRecordReader(InputSplit split,TaskAttemptContext context) throws IOException
+	public RecordReader<Key_IMOAndRecordTime, TextArrayWritable> createRecordReader(InputSplit split,TaskAttemptContext context) throws IOException
 	{
 		// TODO Auto-generated method stub
-		return new CombineFileRecordReader<Key_ShipIDAndRecordTime, TextArrayWritable>((CombineFileSplit)split, context, VesselLocationRecordReader.class);
+		return new CombineFileRecordReader<Key_IMOAndRecordTime, TextArrayWritable>((CombineFileSplit)split, context, VesselLocationRecordReader.class);
 
 	}
 

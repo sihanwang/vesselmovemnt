@@ -25,11 +25,11 @@ import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit;
 
 
 
-public class VesselLocationRecordReader extends RecordReader<Key_ShipIDAndRecordTime, TextArrayWritable> {
+public class VesselLocationRecordReader extends RecordReader<Key_IMOAndRecordTime, TextArrayWritable> {
 
 	private static DateFormat rawformatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
-	private Key_ShipIDAndRecordTime key= new Key_ShipIDAndRecordTime();
+	private Key_IMOAndRecordTime key= new Key_IMOAndRecordTime();
 	private TextArrayWritable value = new TextArrayWritable();
 	private boolean ReachEnd = false;
 	private FSDataInputStream in = null;
@@ -90,7 +90,7 @@ public class VesselLocationRecordReader extends RecordReader<Key_ShipIDAndRecord
 	}
 
 	@Override
-	public Key_ShipIDAndRecordTime getCurrentKey() throws IOException, InterruptedException {
+	public Key_IMOAndRecordTime getCurrentKey() throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 		return key;
 	}
@@ -124,41 +124,54 @@ public class VesselLocationRecordReader extends RecordReader<Key_ShipIDAndRecord
 
 		// TODO Auto-generated method stub
 		if (!ReachEnd) {
-
-			String strRow=BR.readLine();
 			
-			if (strRow!=null)
+			do
 			{
+				String strRow=BR.readLine();
+				
+				if (strRow==null)
+				{
+					break;
+				}
+				
 				String[] nextrow=CSVP.parseLine(strRow);
 
 				currentpos=currentpos+strRow.getBytes().length;
-				
-				long shipID=Long.parseLong(nextrow[0].trim());
+
+				String strImo=nextrow[1].trim();
+
+				if (strImo.equals(""))
+				{
+					continue;
+				}
+
+				long IMO=Long.parseLong(strImo);
+
 				String recordTime=nextrow[21].trim().substring(0, 19);
-				
+
 				ParsePosition pos = new ParsePosition(0);
 				long record_time=rawformatter.parse(recordTime, pos).getTime();
-				
-				key.set(new VLongWritable(shipID), new VLongWritable(record_time));
-				
+
+				key.set(new VLongWritable(IMO), new VLongWritable(record_time));
+
 				Text[] allfields=new Text[nextrow.length];
 
 				for(int i=0;i<nextrow.length;i++)
 				{
 					allfields[i]=new Text(nextrow[i]);					
 				}
-				
+
 				value.set(allfields);
 
-				return true;
+				return true;				
 			}
-			else
-			{
-				IOUtils.closeStream(in);
-				BR.close();
-				ReachEnd=true;
-				return false;
-			}
+			while(true);
+						
+			IOUtils.closeStream(in);
+			BR.close();
+			ReachEnd=true;
+			return false;
+
 		}
 		else
 		{

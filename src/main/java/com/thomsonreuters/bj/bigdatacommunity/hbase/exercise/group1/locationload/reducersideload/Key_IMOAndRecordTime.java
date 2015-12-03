@@ -8,25 +8,25 @@ import java.util.Date;
 import org.apache.hadoop.io.VLongWritable;
 import org.apache.hadoop.io.WritableComparable;
 
-public class Key_ShipIDAndRecordTime implements WritableComparable<Key_ShipIDAndRecordTime> {
+public class Key_IMOAndRecordTime implements WritableComparable<Key_IMOAndRecordTime> {
 
 
-	private VLongWritable shipID;
+	private VLongWritable IMO;
 	private VLongWritable recordTime;
 	
-	public Key_ShipIDAndRecordTime()
+	public Key_IMOAndRecordTime()
 	{
 		set(new VLongWritable(), new VLongWritable());
 	}
 
-	public void set(VLongWritable ship_id, VLongWritable record_Time)
+	public void set(VLongWritable imo, VLongWritable record_Time)
 	{
-		this.shipID=ship_id;
+		this.IMO=imo;
 		this.recordTime=record_Time;
 	}
 	
-	public Key_ShipIDAndRecordTime(long ship_id, Date record_time) {
-		shipID = new VLongWritable(ship_id);
+	public Key_IMOAndRecordTime(long imo, Date record_time) {
+		IMO = new VLongWritable(imo);
 		recordTime = new VLongWritable(record_time.getTime());
 	}
 
@@ -34,21 +34,21 @@ public class Key_ShipIDAndRecordTime implements WritableComparable<Key_ShipIDAnd
 	public void readFields(DataInput in) throws IOException {
 		// TODO Auto-generated method stub
 
-		shipID.readFields(in);
+		IMO.readFields(in);
 		recordTime.readFields(in);
 	}
 
 	@Override
 	public void write(DataOutput out) throws IOException {
 		// TODO Auto-generated method stub
-		shipID.write(out);
+		IMO.write(out);
 		recordTime.write(out);
 	}
 
 	@Override
-	public int compareTo(Key_ShipIDAndRecordTime key) {
+	public int compareTo(Key_IMOAndRecordTime key) {
 		// TODO Auto-generated method stub
-		int cmp = shipID.compareTo(key.getShipID());
+		int cmp = IMO.compareTo(key.getIMO());
 		if (cmp != 0) {
 			return cmp;
 		}
@@ -56,8 +56,8 @@ public class Key_ShipIDAndRecordTime implements WritableComparable<Key_ShipIDAnd
 
 	}
 
-	public VLongWritable getShipID() {
-		return shipID;
+	public VLongWritable getIMO() {
+		return IMO;
 	}
 
 	public VLongWritable getRecordTime() {
@@ -68,9 +68,9 @@ public class Key_ShipIDAndRecordTime implements WritableComparable<Key_ShipIDAnd
 	@Override
 	public boolean equals(Object o) {
 		// TODO Auto-generated method stub
-		if (o instanceof Key_ShipIDAndRecordTime) {
-			Key_ShipIDAndRecordTime key = (Key_ShipIDAndRecordTime) o;
-			return shipID.equals(key.getShipID())
+		if (o instanceof Key_IMOAndRecordTime) {
+			Key_IMOAndRecordTime key = (Key_IMOAndRecordTime) o;
+			return IMO.equals(key.getIMO())
 					&& recordTime.equals(key.getRecordTime());
 		}
 		return false;
@@ -79,6 +79,6 @@ public class Key_ShipIDAndRecordTime implements WritableComparable<Key_ShipIDAnd
 	@Override
 	public int hashCode() {
 		// TODO Auto-generated method stub
-		return shipID.hashCode() * 31 + recordTime.hashCode();
+		return IMO.hashCode() * 31 + recordTime.hashCode();
 	}
 }

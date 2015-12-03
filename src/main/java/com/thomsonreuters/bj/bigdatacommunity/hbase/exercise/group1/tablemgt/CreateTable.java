@@ -30,7 +30,7 @@ public class CreateTable {
 	    
 	    ////////////////////////////////////////////////////
 	    //create vessel location table
-	    //rowkey: shipid(10)+timestamp(19 desc)
+	    //rowkey: imo(7)+timestamp(19 desc)
 
 	    TableName tableName_location = TableName.valueOf("cdb_vessel", "vessel_location");
 	    HTableDescriptor desc_location = new HTableDescriptor(tableName_location);
@@ -40,7 +40,7 @@ public class CreateTable {
 	    coldef_location.setMaxVersions(1);
 	    desc_location.addFamily(coldef_location);
 
-	    admin.createTable(desc_location,Bytes.toBytes("00000000000000000000000000000"),Bytes.toBytes("99999999999999999999999999999"),7);
+	    admin.createTable(desc_location);
 	    // ^^ CreateTableWithNamespaceExample
 
 	    boolean avail_location = admin.isTableAvailable(tableName_location);
@@ -49,7 +49,7 @@ public class CreateTable {
 	    
 	    ////////////////////////////////////////////////////	    
 	    //create vessel event table
-	    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(10)
+	    //rowkey: imo(7)+timestamp(19 desc)+polygonid(10)
 	    //qualifier:entertime,entercoordinates,exittime,exitcoordinates,destination
 
 	    TableName tableName_event = TableName.valueOf("cdb_vessel", "vessel_event");
@@ -60,7 +60,7 @@ public class CreateTable {
 	    coldef_event.setMaxVersions(1);
 	    desc_event.addFamily(coldef_event);
 
-	    admin.createTable(desc_event,Bytes.toBytes("000000000000000000000000000000000000000"),Bytes.toBytes("999999999999999999999999999999999999999"),7);
+	    admin.createTable(desc_event);
 	    // ^^ CreateTableWithNamespaceExample
 
 	    boolean avail_event = admin.isTableAvailable(tableName_event);

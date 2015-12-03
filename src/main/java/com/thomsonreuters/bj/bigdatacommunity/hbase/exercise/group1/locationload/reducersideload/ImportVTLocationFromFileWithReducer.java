@@ -81,12 +81,12 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 	private static DateFormat rawformatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");	
 
 	public enum Counters {
-		VESSEL_ERROR, LOCATION_ROWS, LOCATION_ERROR, LOCATION_VALID, EVENT_UPSERTS, EVENT_ERROR, EVENT_VALID
+		VESSEL_WITHOUTTYPE, LOCATION_ROWS, LOCATION_ERROR, LOCATION_VALID, EVENT_UPSERTS, EVENT_ERROR, EVENT_VALID
 	}
 
 	static class ImportReducer
 			extends
-			Reducer<Key_ShipIDAndRecordTime, TextArrayWritable, NullWritable, NullWritable> {
+			Reducer<Key_IMOAndRecordTime, TextArrayWritable, NullWritable, NullWritable> {
 
 		private Connection connection = null;
 		private BufferedMutator VTLocation = null;
@@ -111,7 +111,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		
 		@Override
 		protected void cleanup(
-				Reducer<Key_ShipIDAndRecordTime, TextArrayWritable, NullWritable, NullWritable>.Context context)
+				Reducer<Key_IMOAndRecordTime, TextArrayWritable, NullWritable, NullWritable>.Context context)
 				throws IOException, InterruptedException {
 			// TODO Auto-generated method stub
 			VTLocation.flush();
@@ -122,7 +122,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 		@Override
 		protected void setup(
-				Reducer<Key_ShipIDAndRecordTime, TextArrayWritable, NullWritable, NullWritable>.Context context)
+				Reducer<Key_IMOAndRecordTime, TextArrayWritable, NullWritable, NullWritable>.Context context)
 				throws IOException, InterruptedException {
 			
 			// TODO Auto-generated method stub
@@ -156,11 +156,11 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		}
 
 		@Override
-		protected void reduce(Key_ShipIDAndRecordTime key,
+		protected void reduce(Key_IMOAndRecordTime key,
 				Iterable<TextArrayWritable> LocationList, Context context)
 				throws IOException, InterruptedException {
 
-			String shipid_str = padNum(key.getShipID().get(), 10);
+			String IMO_str = padNum(key.getIMO().get(), 7);
 			VLongWritable pos_time = key.getRecordTime();
 
 			// //////////////////////////////////////////////////////////////////////////////
@@ -168,19 +168,19 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 			// Retrieve all the existing locations after the first new location.
 			List<VesselLocation> AllAfterPoints = getLocationsAfter(
-					VTLocation_Table, shipid_str, pos_time.get());
+					VTLocation_Table, IMO_str, pos_time.get());
 
 			// Find out the last location before the first new location in			
-			VesselLocation LastLocation = getLocationBefore(VTLocation_Table,key.getShipID().get(), pos_time.get());
+			VesselLocation LastLocation = getLocationBefore(VTLocation_Table,key.getIMO().get(), pos_time.get());
 
 			if (AllAfterPoints.size() > 0) {
 				// remove all events start after the first new location.
-				deleteEventsStartAfter(VTEvent_Table, shipid_str,pos_time.get());
+				deleteEventsStartAfter(VTEvent_Table, IMO_str,pos_time.get());
 				
 				if (LastLocation!=null)
 				{
 					//update existing events that started BEFORE the first new location and end after the first to end as the last location
-					updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getShipID().get(),LastLocation);
+					updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
 				}
 			}
 			
@@ -189,7 +189,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			if (LastLocation!=null)
 			{
 			//Get all events with exit at last location
-				PreviousZoneEvents = getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getShipID().get(),LastLocation);
+				PreviousZoneEvents = getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
 			}
 			else
 			{
@@ -217,7 +217,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 					long record_time = rawformatter.parse(Timestamp, pos)
 							.getTime();
 
-					byte[] rowkey = Bytes.toBytes(shipid_str
+					byte[] rowkey = Bytes.toBytes(IMO_str
 							+ padNum(Long.MAX_VALUE - record_time, 19));
 					Put put = new Put(rowkey);
 
@@ -254,11 +254,11 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			
 			ArrayList<VesselEvent> DerivedEventList=new ArrayList<VesselEvent>();
 			
-			String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getShipID().get());
+			String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getIMO().get());
 			
 			if (VesselType==null)
 			{
-				context.getCounter(Counters.VESSEL_ERROR).increment(1);
+				context.getCounter(Counters.VESSEL_WITHOUTTYPE).increment(1);
 				return;
 			}
 			
@@ -329,12 +329,12 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			
 			for (VesselEvent newEvent : DerivedEventList)
 			{
-			    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(8)
+			    //rowkey: IMO(7)+timestamp(19 desc)+polygonid(8)
 			    //qualifier:entrytime,entrycoordinates,exittime,exitcoordinates,destination
 				
 				context.getCounter(Counters.EVENT_UPSERTS ).increment(1);
 				
-				byte[] rowkey = Bytes.toBytes(shipid_str
+				byte[] rowkey = Bytes.toBytes(IMO_str
 						+ padNum(Long.MAX_VALUE - newEvent.entrytime, 19)+padNum(newEvent.polygonid,10));
 				Put put = new Put(rowkey);
 
@@ -363,15 +363,15 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		}
 
 		public static List<VesselLocation> getLocationsAfter(
-				Table VTLocation_Table, String shipid_str, long timestamp)
+				Table VTLocation_Table, String imo_str, long timestamp)
 				throws IOException {
 
 			// scan
 			// 'cdb_vessel:vessel_location',{FILTER=>"(PrefixFilter('0000003162')"}
 			Scan GetExistingLocations = new Scan();
 			GetExistingLocations.setStartRow(
-					Bytes.toBytes(shipid_str + padNum(0, 19))).setStopRow(
-					Bytes.toBytes(shipid_str
+					Bytes.toBytes(imo_str + padNum(0, 19))).setStopRow(
+					Bytes.toBytes(imo_str
 							+ padNum(Long.MAX_VALUE - timestamp, 19)));
 
 			ResultScanner Result_ExistingLocations = VTLocation_Table
@@ -407,14 +407,14 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		}
 
 		public static void deleteEventsStartAfter(Table VTEvent_Table,
-				String shipid_str, long timestamp) throws IOException {
+				String imo_str, long timestamp) throws IOException {
 
 			// scan
 			// 'cdb_vessel:vessel_event',{FILTER=>"(PrefixFilter('0000003162')"}
 			Scan GetEventsStartAfter = new Scan();
 			GetEventsStartAfter.setStartRow(
-					Bytes.toBytes(shipid_str + padNum(0, 19)+"00000000")).setStopRow(
-					Bytes.toBytes(shipid_str
+					Bytes.toBytes(imo_str + padNum(0, 19)+"00000000")).setStopRow(
+					Bytes.toBytes(imo_str
 							+ padNum(Long.MAX_VALUE - timestamp+1, 19)+"99999999"));
 			GetEventsStartAfter.setFilter(new KeyOnlyFilter());
 
@@ -432,11 +432,11 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		}
 
 		public static VesselLocation getLocationBefore(Table VTLocation_Table,
-				long shipid, long timestamp) throws IOException {
+				long imo, long timestamp) throws IOException {
 
 			Scan getLocationBefore = new Scan();
-			getLocationBefore.setStartRow(Bytes.toBytes(padNum(shipid,10)
-					+ padNum(Long.MAX_VALUE - timestamp + 1, 19))).setStopRow(Bytes.toBytes(padNum(shipid+1,10)
+			getLocationBefore.setStartRow(Bytes.toBytes(padNum(imo,7)
+					+ padNum(Long.MAX_VALUE - timestamp + 1, 19))).setStopRow(Bytes.toBytes(padNum(imo+1,10)
 							+ padNum(0, 19)));
 			
 			getLocationBefore.setMaxResultSize(1);
@@ -473,15 +473,15 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			return null;
 		}
 		
-		public static void updateExistingEventsToEndAtLastLocation(Table VTEvent_Table, long shipid, VesselLocation lastlocation) throws IOException
+		public static void updateExistingEventsToEndAtLastLocation(Table VTEvent_Table, long imo, VesselLocation lastlocation) throws IOException
 		{
 			//update existing events that started BEFORE the first new location and end after the first to end as the last location
 			
 			//Find existing events that started BEFORE the first new location and end after the first
 			Scan getEventStartedBeforeAndEndAfter=new Scan();;
 			getEventStartedBeforeAndEndAfter
-			.setStartRow(Bytes.toBytes(padNum(shipid,10)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
-			.setStopRow(Bytes.toBytes(padNum(shipid,10)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
+			.setStartRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
+			.setStopRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
 			.addColumn(details, exittime);
 			
 			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.GREATER,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
@@ -493,7 +493,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			for (Result res : Result_eventcross) {
 				
 				//vessel event table
-			    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(8)
+			    //rowkey: imo(7)+timestamp(19 desc)+polygonid(8)
 			    //qualifier:entrytime,entrycoordinates,exittime,exitcoordinates,destination
 				byte[] rowkey=res.getRow();
 				Put updateevent=new Put(rowkey);
@@ -510,12 +510,12 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		
 		
 		//Get all events with exit at last location
-		public static Map<Integer,VesselEvent> getAllEventsWithExistAtLastLocation(Table VTEvent_Table, long shipid, VesselLocation lastlocation) throws IOException
+		public static Map<Integer,VesselEvent> getAllEventsWithExistAtLastLocation(Table VTEvent_Table, long imo, VesselLocation lastlocation) throws IOException
 		{
 			Scan getAllEventsWithExistAtLastLocation=new Scan();;
 			getAllEventsWithExistAtLastLocation
-			.setStartRow(Bytes.toBytes(padNum(shipid,10)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
-			.setStopRow(Bytes.toBytes(padNum(shipid,10)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
+			.setStartRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
+			.setStopRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
 			.addColumn(details, exittime);
 			
 			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.EQUAL,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
@@ -530,7 +530,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				Get get = new Get(res.getRow());
 				Result result = VTEvent_Table.get(get);
 				String rowkey = Bytes.toString(result.getRow());
-				String polygonid = rowkey.substring(29);
+				String polygonid = rowkey.substring(26);
 
 				VesselEvent VE = new VesselEvent();
 				VE.polygonid = Integer.parseInt(polygonid);
@@ -562,9 +562,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			return events;
 		}
 		
-		private static String getVesselType(Table Vessel_Table,long shipid) throws IOException
+		private static String getVesselType(Table Vessel_Table,long imo) throws IOException
 		{
-			 Get get = new Get(Bytes.toBytes(padNum(shipid,7)));
+			 Get get = new Get(Bytes.toBytes(padNum(imo,7)));
 			 get.addColumn(ves, TYPE);	
 			 
 			 Result result = Vessel_Table.get(get);
@@ -660,14 +660,14 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		job.setJarByClass(ImportVTLocationFromFileWithReducer.class);
 		job.setJobName("Vessel_location_injection");
 		job.setInputFormatClass(VTVesselLocationFileInputFormat.class);
-		job.setMapOutputKeyClass(Key_ShipIDAndRecordTime.class);
+		job.setMapOutputKeyClass(Key_IMOAndRecordTime.class);
 		job.setMapOutputValueClass(TextArrayWritable.class);
 
-		job.setPartitionerClass(Partitioner_ShipID.class);
-		job.setGroupingComparatorClass(GroupComparator_ShipID.class);
+		job.setPartitionerClass(Partitioner_IMO.class);
+		job.setGroupingComparatorClass(GroupComparator_IMO.class);
 
 		job.setReducerClass(ImportReducer.class);
-		job.setNumReduceTasks(8);
+		job.setNumReduceTasks(Integer.parseInt(args[0]));
 
 		job.setOutputFormatClass(NullOutputFormat.class);
 
@@ -708,7 +708,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		String strRow = BR.readLine();
 		CSVParser CSVP=new CSVParser(',','"','\\',true,false);
 		
-		Key_ShipIDAndRecordTime key= new Key_ShipIDAndRecordTime();
+		Key_IMOAndRecordTime key= new Key_IMOAndRecordTime();
 		boolean first=true;
 		
 		while (strRow!=null)
@@ -716,7 +716,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			String[] nextrow=CSVP.parseLine(strRow);
 						
 			
-			long shipID=Long.parseLong(nextrow[0].trim());
+			long IMO=Long.parseLong(nextrow[0].trim());
 			String recordTime=nextrow[21].trim().substring(0, 19);
 			
 			ParsePosition pos = new ParsePosition(0);
@@ -724,7 +724,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			
 			if (first)
 			{
-				key.set(new VLongWritable(shipID), new VLongWritable(record_time));
+				key.set(new VLongWritable(IMO), new VLongWritable(record_time));
 				first=false;
 			}
 			
@@ -772,7 +772,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		Vessel_Table = connection.getTable(Vessel_Name);
 
 		//////////////////////////////////////////
-		String shipid_str = padNum(key.getShipID().get(), 10);
+		String IMO_str = padNum(key.getIMO().get(), 7);
 		VLongWritable pos_time = key.getRecordTime();
 
 		// //////////////////////////////////////////////////////////////////////////////
@@ -780,19 +780,19 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 		// Retrieve all the existing locations after the first new location.
 		List<VesselLocation> AllAfterPoints = ImportReducer.getLocationsAfter(
-				VTLocation_Table, shipid_str, pos_time.get());
+				VTLocation_Table, IMO_str, pos_time.get());
 
 		// Find out the last location before the first new location in			
-		VesselLocation LastLocation = ImportReducer.getLocationBefore(VTLocation_Table,key.getShipID().get(), pos_time.get());
+		VesselLocation LastLocation = ImportReducer.getLocationBefore(VTLocation_Table,key.getIMO().get(), pos_time.get());
 
 		if (AllAfterPoints.size() > 0) {
 			// remove all events start after the first new location.
-			ImportReducer.deleteEventsStartAfter(VTEvent_Table, shipid_str,pos_time.get());
+			ImportReducer.deleteEventsStartAfter(VTEvent_Table, IMO_str,pos_time.get());
 			
 			if (LastLocation!=null)
 			{
 				//update existing events that started BEFORE the first new location and end after the first to end as the last location
-				ImportReducer.updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getShipID().get(),LastLocation);
+				ImportReducer.updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
 			}
 		}
 		
@@ -801,7 +801,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		if (LastLocation!=null)
 		{
 		//Get all events with exit at last location
-			PreviousZoneEvents =ImportReducer. getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getShipID().get(),LastLocation);
+			PreviousZoneEvents =ImportReducer. getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
 		}
 		else
 		{
@@ -829,7 +829,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				long record_time = rawformatter.parse(Timestamp, pos)
 						.getTime();
 
-				byte[] rowkey = Bytes.toBytes(shipid_str
+				byte[] rowkey = Bytes.toBytes(IMO_str
 						+ padNum(Long.MAX_VALUE - record_time, 19));
 				Put put = new Put(rowkey);
 
@@ -868,7 +868,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		
 		ArrayList<VesselEvent> DerivedEventList=new ArrayList<VesselEvent>();
 		
-		String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getShipID().get());
+		String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getIMO().get());
 		
 		//calculating event
 		for (VesselLocation VL : AllAfterPoints)
@@ -937,12 +937,12 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		
 		for (VesselEvent newEvent : DerivedEventList)
 		{
-		    //rowkey: shipid(10)+timestamp(19 desc)+polygonid(8)
+		    //rowkey: imo(7)+timestamp(19 desc)+polygonid(8)
 		    //qualifier:entrytime,entrycoordinates,exittime,exitcoordinates,destination
 			
 			//context.getCounter(Counters.EVENT_UPSERTS ).increment(1);
 			
-			byte[] rowkey = Bytes.toBytes(shipid_str
+			byte[] rowkey = Bytes.toBytes(IMO_str
 					+ padNum(Long.MAX_VALUE - newEvent.entrytime, 19)+padNum(newEvent.polygonid,10));
 			Put put = new Put(rowkey);
 
@@ -972,7 +972,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		Table table = connection.getTable(TableName.valueOf("cdb_vessel",
 				"vessel_location"));
 
-		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 10), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
+		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
 
 		ImportReducer.getLocationBefore(table, 3162, rawformatter.parse("2015-10-19T00:35:03.311Z", new ParsePosition(0)).getTime());
 		connection.close();
@@ -987,7 +987,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		Connection connection = ConnectionFactory.createConnection(conf);
 		Table table = connection.getTable(TableName.valueOf("cdb_vessel:vessel"));
 
-		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 10), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
+		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
 		ImportReducer.getVesselType(table, 316255);
 		
 		connection.close();
