@@ -28,6 +28,8 @@ public class CreateTable {
 		Connection connection = ConnectionFactory.createConnection(conf);
 	    Admin admin = connection.getAdmin();
 	    
+	    /*
+	    
 	    ////////////////////////////////////////////////////
 	    //create vessel location table
 	    //rowkey: imo(7)+timestamp(19 desc)
@@ -65,6 +67,27 @@ public class CreateTable {
 
 	    boolean avail_event = admin.isTableAvailable(tableName_event);
 	    System.out.println("The availability of table vessel_event: " + avail_event);
+	    
+	    */
+
+	    ////////////////////////////////////////////////////	    
+	    //create latest location table
+	    //rowkey: global zone id (4)+ longlat22 ((long11(sign(1)+integer(3)+digit(7)))(lat10(sign(1)+integer(3)+(7))))+imo(7)+recordtime(19)
+	    //qualifier:entertime,entercoordinates,exittime,exitcoordinates,destination
+
+	    TableName tableName_latest_location = TableName.valueOf("cdb_vessel", "latest_location");
+	    HTableDescriptor desc_latest_location = new HTableDescriptor(tableName_latest_location);
+
+	    HColumnDescriptor coldef_latest_location = new HColumnDescriptor(
+	  	      Bytes.toBytes("details"));
+	    coldef_latest_location.setMaxVersions(1);
+	    desc_latest_location.addFamily(coldef_latest_location);
+	  	    
+	    admin.createTable(desc_latest_location);
+	    // ^^ CreateTableWithNamespaceExample
+
+	    boolean avail_latest_location = admin.isTableAvailable(tableName_latest_location);
+	    System.out.println("The availability of table vessel_event: " + avail_latest_location);	    
 	    
 	  }
 

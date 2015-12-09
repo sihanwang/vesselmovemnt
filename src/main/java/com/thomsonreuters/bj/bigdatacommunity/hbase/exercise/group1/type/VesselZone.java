@@ -32,32 +32,54 @@ public class VesselZone implements Serializable {
 	public static Geometry[] GlobalZones;
 
 	static {
-		GlobalZones = new Geometry[8];
+		
+		int num=9;
+		
+		GlobalZones = new Geometry[num*num*4];
 		GeometryFactory geometryFactory = JTSFactoryFinder
 				.getGeometryFactory(null);
 
 		try {
-			GlobalZones[0] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((0.0 0.0, 0.0 90.0, -90 90, -90.0 0.0, 0.0 0.0))");
-			GlobalZones[1] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((-90.0 0.0, -90.0 90.0, -180.0 90.0, -180.0 0.0, -90.0 0.0))");
-			GlobalZones[2] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((0.0 0.0, 90.0 0.0, 90.0 90.0, 0 90, 0.0 0.0))");
-			GlobalZones[3] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((90.0 0.0, 180.0 0.0, 180.0 90.0, 90.0 90.0, 90.0 0.0))");
-			GlobalZones[4] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((0.0 0.0, -90.0 0.0, -90.0 -90.0, 0 -90, 0.0 0.0))");
-			GlobalZones[5] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((-90.0 0.0, -180.0 0.0, -180.0 -90.0, -90.0 -90.0, -90.0 0.0))");
-			GlobalZones[6] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((0.0 0.0, 0.0 -90.0, 90 -90, 90.0 0.0, 0.0 0.0))");
-			GlobalZones[7] = createPolygonByWKT(geometryFactory,
-					"POLYGON ((90.0 0.0, 90.0 -90.0, 180.0 -90.0, 180.0 0.0, 90.0 0.0))");
+			
+			int arrayindex=0;
+					
+			for (int i=-num ; i<num ; i++)
+			{			
+				for (int j=-num ; j<num ; j++)
+				{
+					String WKT="POLYGON ((";
+					
+					float PLong1=(180/num)*i;
+					float PLat1=(90/num)*j;
+					
+					float PLong2=(180/num)*(i+1);
+					float PLat2=(90/num)*j;
+					
+					float PLong3=(180/num)*(i+1);
+					float PLat3=(90/num)*(j+1);
+					
+					float PLong4=(180/num)*i;
+					float PLat4=(90/num)*(j+1);	
+					
+					WKT=WKT+String.valueOf(PLong1)+" "+String.valueOf(PLat1)+", "
+							+String.valueOf(PLong2)+" "+String.valueOf(PLat2)+", "
+							+String.valueOf(PLong3)+" "+String.valueOf(PLat3)+", "
+							+String.valueOf(PLong4)+" "+String.valueOf(PLat4)+", "
+							+String.valueOf(PLong1)+" "+String.valueOf(PLat1)+"))";
+					
+					GlobalZones[arrayindex]=createPolygonByWKT(geometryFactory,WKT);
+					arrayindex++;
+					
+				}
+			}
+						
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
+	
+	
 
 	private static Geometry createPolygonByWKT(GeometryFactory GF, String WKT)
 			throws ParseException {
@@ -124,10 +146,13 @@ public class VesselZone implements Serializable {
 	}
 
 	public static void main(String[] args) throws Exception {
+		
+
 		DiskInstance<HashMap<Integer, VesselZone>> DI = new DiskInstance<HashMap<Integer, VesselZone>>(
 				"VesselZone");
 		ZoneMap = DownloadAllZonesHbase();
 		DI.SaveInstance(ZoneMap);
+
 
 	}
 

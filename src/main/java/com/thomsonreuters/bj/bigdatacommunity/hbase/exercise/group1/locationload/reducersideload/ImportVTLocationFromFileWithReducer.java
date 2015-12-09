@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.DateFormat;
+import java.text.DecimalFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -73,8 +76,20 @@ import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Point;
 import com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.type.VesselZone;
 
-//java -classpath $(hadoop classpath):VesselMovement-0.0.1-SNAPSHOT-jar-with-dependencies.jar com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.reducersideload.ImportVTLocationFromFileWithReducer -conf /etc/hbase/conf/hbase-site.xml -files VesselZone 8003662/vessellocation_small
+//java -classpath $(hadoop classpath):VesselMovement-0.0.1-SNAPSHOT-jar-with-dependencies.jar com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.reducersideload.ImportVTLocationFromFileWithReducer -conf /etc/hbase/conf/hbase-site.xml -files VesselZone 8003662/vessellocation_small 10
 //hadoop jar VesselMovement-0.0.1-SNAPSHOT-jar-with-dependencies.jar -files VesselZone 8003662/vessellocation_small
+/*
+com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.locationload.reducersideload.ImportVTLocationFromFileWithReducer$C
+EVENT_UPSERTS=51340
+EVENT_VALID=51340
+LOCATION_ROWS=10831869
+LOCATION_VALID=10831869
+VESSEL_WITHOUTTYPE=2
+File Input Format Counters 
+Bytes Read=0
+File Output Format Counters 
+Bytes Written=0
+*/
 
 public class ImportVTLocationFromFileWithReducer extends Configured implements
 		Tool {
@@ -91,9 +106,14 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		private Connection connection = null;
 		private BufferedMutator VTLocation = null;
 		private BufferedMutator VTEvent = null;
+		private BufferedMutator VTVessel = null;
+		private BufferedMutator LastLocation_BM = null;
+		
 		private Table VTLocation_Table = null;
 		private Table VTEvent_Table = null;
 		private Table Vessel_Table=null;
+		private Table LastLocation_Table=null;
+		
 		private HashMap<Integer, VesselZone> Zonemap;
 		
 		private static byte[] details = Bytes.toBytes("details");
@@ -107,6 +127,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		private static byte[] exitcoordinates = Bytes.toBytes("exitcoordinates");
 		private static byte[] TYPE = Bytes.toBytes("TYPE");
 		private static byte[] ves = Bytes.toBytes("ves");
+		private static byte[] lastlocation=Bytes.toBytes("lastlocation");
+		private static byte[] imo=Bytes.toBytes("imo");
+
 		
 		
 		@Override
@@ -116,6 +139,8 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			// TODO Auto-generated method stub
 			VTLocation.flush();
 			VTEvent.flush();
+			VTVessel.flush();
+			LastLocation_BM.flush();
 
 			connection.close();
 		}
@@ -141,7 +166,15 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			
 			TableName Vessel_Name = TableName
 					.valueOf("cdb_vessel:vessel");
+			VTVessel = connection.getBufferedMutator(Vessel_Name);
 			Vessel_Table = connection.getTable(Vessel_Name);
+			
+			TableName LastLocation_Name = TableName
+					.valueOf("cdb_vessel:latest_location");
+			LastLocation_BM=connection.getBufferedMutator(LastLocation_Name);
+			LastLocation_Table = connection.getTable(LastLocation_Name);			
+			
+			
 			
 			try {
 				File Zonemapfile=new File("VesselZone");
@@ -160,7 +193,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				Iterable<TextArrayWritable> LocationList, Context context)
 				throws IOException, InterruptedException {
 
-			String IMO_str = padNum(key.getIMO().get(), 7);
+			String IMO_str = LpadNum(key.getIMO().get(), 7);
 			VLongWritable pos_time = key.getRecordTime();
 
 			// //////////////////////////////////////////////////////////////////////////////
@@ -207,18 +240,18 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				try {
 
 					Writable[] content = rowcontent.get();
-					String Latitude = content[16].toString();
-					String Longitude = content[15].toString();
+					String Latitude = content[16].toString().trim();
+					String Longitude = content[15].toString().trim();
 					String Coordinates=Latitude + "," + Longitude;
-					String Speed = content[18].toString();
-					String Destination = content[9].toString();
-					String Timestamp = content[21].toString();
+					String Speed = content[18].toString().trim();
+					String Destination = content[9].toString().trim();
+					String Timestamp = content[21].toString().trim();
 					ParsePosition pos = new ParsePosition(0);
 					long record_time = rawformatter.parse(Timestamp, pos)
 							.getTime();
 
 					byte[] rowkey = Bytes.toBytes(IMO_str
-							+ padNum(Long.MAX_VALUE - record_time, 19));
+							+ LpadNum(Long.MAX_VALUE - record_time, 19));
 					Put put = new Put(rowkey);
 
 					put.addColumn(details, speed, Bytes.toBytes(Speed));
@@ -252,11 +285,54 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			//dedup
 			AllAfterPoints=dedup(AllAfterPoints);
 			
+			
+			/////////////////////////////////////////////////////////////////////
+			//Store latest location
+			//rowkey: global zone id (4)+ longlat22 ((long11(sign(1)+integer(3)+digit(7)))(lat11(sign(1)+integer(3)+(7))))+imo(7)+recordtime(19)
+			/////////////////////////////////////////////////////////////////////			
+			VesselLocation lastLocation=AllAfterPoints.get(AllAfterPoints.size()-1);	
+			Vessel thisVessel=getVesselType(Vessel_Table, key.getIMO().get());
+			
+			String[] longlat=lastLocation.coordinates.split(",");
+			GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory(null);
+			Coordinate coord = new Coordinate(Double.parseDouble(longlat[1]), Double.parseDouble(longlat[0]));
+			Point point = geometryFactory.createPoint(coord);
+
+			Integer BelongedGlobalZoneIndex=null;
+
+			for (int i=0 ; i<VesselZone.GlobalZones.length ; i++)
+			{
+				if (VesselZone.GlobalZones[i].covers(point))
+				{
+					BelongedGlobalZoneIndex=i;
+					break;
+				}
+			}
+						
+			if (thisVessel.LastLocation!=null)
+			{
+				LastLocation_BM.mutate(new Delete(thisVessel.LastLocation));
+			}
+			
+			
+			byte[] lastlocationrowkey = Bytes.toBytes(LpadNum(BelongedGlobalZoneIndex,4) + ConvertCoordinatesToStr(longlat[1])+ConvertCoordinatesToStr(longlat[0]));
+			Put lastlocation_put=new Put(lastlocationrowkey);	
+			lastlocation_put.addColumn(details, imo, Bytes.toBytes(IMO_str));
+			lastlocation_put.addColumn(details, timestamp, Bytes.toBytes(rawformatter.format(new Date(lastLocation.recordtime))));
+			LastLocation_BM.mutate(lastlocation_put);
+			
+			//update vessel lastlocation
+			Put vessel_lastlocation=new Put(Bytes.toBytes(String.valueOf(key.getIMO().get())));
+			vessel_lastlocation.addColumn(ves, lastlocation, lastlocationrowkey);
+			VTVessel.mutate(vessel_lastlocation);
+			VTVessel.flush();
+			
+			////////////////////////////////////////////////////////////////////
+			
 			ArrayList<VesselEvent> DerivedEventList=new ArrayList<VesselEvent>();
 			
-			String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getIMO().get());
-			
-			if (VesselType==null)
+	
+			if (thisVessel.VesselType ==null)
 			{
 				context.getCounter(Counters.VESSEL_WITHOUTTYPE).increment(1);
 				return;
@@ -265,7 +341,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			//calculating event
 			for (VesselLocation VL : AllAfterPoints)
 			{
-				ArrayList<Integer> CurrentZones = LocateCurrentZone(VL.coordinates ,VesselType, Zonemap);
+				ArrayList<Integer> CurrentZones = LocateCurrentZone(VL.coordinates ,thisVessel.VesselType, Zonemap);
 				
 				Iterator<Map.Entry<Integer, VesselEvent>> it = PreviousZoneEvents.entrySet().iterator();  
 				
@@ -325,6 +401,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				}		
 			}
 			
+
+			
+			
 			//pupulate Derived Events into Hbase
 			
 			for (VesselEvent newEvent : DerivedEventList)
@@ -335,7 +414,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				context.getCounter(Counters.EVENT_UPSERTS ).increment(1);
 				
 				byte[] rowkey = Bytes.toBytes(IMO_str
-						+ padNum(Long.MAX_VALUE - newEvent.entrytime, 19)+padNum(newEvent.polygonid,10));
+						+ LpadNum(Long.MAX_VALUE - newEvent.entrytime, 19)+LpadNum(newEvent.polygonid,10));
 				Put put = new Put(rowkey);
 
 				put.addColumn(details, entrytime, Bytes.toBytes(rawformatter.format(new Date(newEvent.entrytime))));
@@ -348,6 +427,69 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				context.getCounter(Counters.EVENT_VALID).increment(1);				
 			}
 			
+		}
+		
+		public static String ConvertCoordinatesToStr(String longorlat)
+		{
+			BigDecimal bigDec = new BigDecimal(Double.parseDouble(longorlat));  
+			double f1 =  bigDec.setScale(7, RoundingMode.HALF_UP).doubleValue(); 
+			
+			DecimalFormat df = new DecimalFormat("####.#######");
+			
+			longorlat=df.format(f1);
+					
+			boolean minus=false;
+			String IntegerPart="";
+			String DigitPart="";
+			
+			if (longorlat.startsWith("-") )
+			{
+				minus=true;
+			}
+			
+			int index=longorlat.indexOf(".");
+			
+			if (minus)
+			{
+				if (index!=-1)
+				{
+					IntegerPart="-"+LpadNum(Integer.parseInt(longorlat.substring(1,index)),3);
+				}
+				else
+				{
+					IntegerPart="-"+LpadNum(Integer.parseInt(longorlat.substring(1)),3);
+				}
+			}
+			else
+			{
+				if (index!=-1)
+				{
+					IntegerPart=LpadNum(Integer.parseInt(longorlat.substring(0,index)),4);
+				}
+				else
+				{
+					IntegerPart=LpadNum(Integer.parseInt(longorlat.substring(0)),4);
+				}
+				
+				
+			}
+			
+			if (index!=-1)
+			{
+				DigitPart=longorlat.substring(index+1);
+			}
+			else
+			{
+				DigitPart="";
+			}
+				
+			while(DigitPart.length()<7)
+			{
+				DigitPart=DigitPart+"0";
+			}
+			
+			return IntegerPart+DigitPart;
+
 		}
 		
 		public static List<VesselLocation> dedup(
@@ -370,9 +512,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			// 'cdb_vessel:vessel_location',{FILTER=>"(PrefixFilter('0000003162')"}
 			Scan GetExistingLocations = new Scan();
 			GetExistingLocations.setStartRow(
-					Bytes.toBytes(imo_str + padNum(0, 19))).setStopRow(
+					Bytes.toBytes(imo_str + LpadNum(0, 19))).setStopRow(
 					Bytes.toBytes(imo_str
-							+ padNum(Long.MAX_VALUE - timestamp, 19)));
+							+ LpadNum(Long.MAX_VALUE - timestamp, 19)));
 
 			ResultScanner Result_ExistingLocations = VTLocation_Table
 					.getScanner(GetExistingLocations);
@@ -413,9 +555,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			// 'cdb_vessel:vessel_event',{FILTER=>"(PrefixFilter('0000003162')"}
 			Scan GetEventsStartAfter = new Scan();
 			GetEventsStartAfter.setStartRow(
-					Bytes.toBytes(imo_str + padNum(0, 19)+"00000000")).setStopRow(
+					Bytes.toBytes(imo_str + LpadNum(0, 19)+"00000000")).setStopRow(
 					Bytes.toBytes(imo_str
-							+ padNum(Long.MAX_VALUE - timestamp+1, 19)+"99999999"));
+							+ LpadNum(Long.MAX_VALUE - timestamp+1, 19)+"99999999"));
 			GetEventsStartAfter.setFilter(new KeyOnlyFilter());
 
 			ResultScanner Result_ExistingEvents = VTEvent_Table
@@ -435,9 +577,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				long imo, long timestamp) throws IOException {
 
 			Scan getLocationBefore = new Scan();
-			getLocationBefore.setStartRow(Bytes.toBytes(padNum(imo,7)
-					+ padNum(Long.MAX_VALUE - timestamp + 1, 19))).setStopRow(Bytes.toBytes(padNum(imo+1,10)
-							+ padNum(0, 19)));
+			getLocationBefore.setStartRow(Bytes.toBytes(LpadNum(imo,7)
+					+ LpadNum(Long.MAX_VALUE - timestamp + 1, 19))).setStopRow(Bytes.toBytes(LpadNum(imo+1,10)
+							+ LpadNum(0, 19)));
 			
 			getLocationBefore.setMaxResultSize(1);
 			
@@ -480,8 +622,8 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			//Find existing events that started BEFORE the first new location and end after the first
 			Scan getEventStartedBeforeAndEndAfter=new Scan();;
 			getEventStartedBeforeAndEndAfter
-			.setStartRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
-			.setStopRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
+			.setStartRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
+			.setStopRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE, 19)+"9999999999"))
 			.addColumn(details, exittime);
 			
 			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.GREATER,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
@@ -514,8 +656,8 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		{
 			Scan getAllEventsWithExistAtLastLocation=new Scan();;
 			getAllEventsWithExistAtLastLocation
-			.setStartRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
-			.setStopRow(Bytes.toBytes(padNum(imo,7)+padNum(Long.MAX_VALUE, 19)+"9999999999"))
+			.setStartRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
+			.setStopRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE, 19)+"9999999999"))
 			.addColumn(details, exittime);
 			
 			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.EQUAL,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
@@ -562,21 +704,28 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			return events;
 		}
 		
-		private static String getVesselType(Table Vessel_Table,long imo) throws IOException
+		private static Vessel getVesselType(Table Vessel_Table,long imo) throws IOException
 		{
-			 Get get = new Get(Bytes.toBytes(padNum(imo,7)));
+			 Get get = new Get(Bytes.toBytes(LpadNum(imo,7)));
 			 get.addColumn(ves, TYPE);	
+			 get.addColumn(ves,lastlocation);
 			 
 			 Result result = Vessel_Table.get(get);
 			 byte[] val = result.getValue(ves,TYPE);
-			 return Bytes.toString(val);
+			 byte[] last_location=result.getValue(ves,lastlocation);
+			 
+			 Vessel vessel=new Vessel();
+			 vessel.LastLocation=last_location;
+			 vessel.VesselType=Bytes.toString(val);
+			 
+			 return vessel;
 		}
 		
 		private static ArrayList<Integer> LocateCurrentZone(String Coordinates, String VesselProductType,HashMap<Integer, VesselZone> Zonemap)
 		{
 			String[] longlat=Coordinates.split(",");
 			GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory(null);
-			Coordinate coord = new Coordinate(Double.parseDouble(longlat[0]), Double.parseDouble(longlat[1]));
+			Coordinate coord = new Coordinate(Double.parseDouble(longlat[1]), Double.parseDouble(longlat[0]));
 			Point point = geometryFactory.createPoint(coord);
 
 			ArrayList<Integer> CurrentZones = new ArrayList<Integer>();
@@ -675,7 +824,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 	}
 
-	public static String padNum(long num, int pad) {
+	public static String LpadNum(long num, int pad) {
 		String res = Long.toString(num);
 		if (pad > 0) {
 			while (res.length() < pad) {
@@ -684,22 +833,55 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		}
 		return res;
 	}
+	
+	public static String RpadNum(long num, int pad) {
+		String res = Long.toString(num);
+		if (pad > 0) {
+			while (res.length() < pad) {
+				res = res+"0";
+			}
+		}
+		return res;
+	}
+	
 
 	
-	public static void unittestforlocationload() throws Exception {
+	public static void unittest_getLocationBefore() throws Exception
+	{
+		PropertyConfigurator.configure("log4j.properties");
+		Configuration conf = HBaseConfiguration.create();
+		conf.addResource(new Path("hbase-site.xml"));
+
+		Connection connection = ConnectionFactory.createConnection(conf);
+		Table table = connection.getTable(TableName.valueOf("cdb_vessel",
+				"vessel_location"));
+
+		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
+
+		ImportReducer.getLocationBefore(table, 3162, rawformatter.parse("2015-10-19T00:35:03.311Z", new ParsePosition(0)).getTime());
+		connection.close();
+	}
+
+	public static void unittest_getForVesselType() throws Exception
+	{
+		PropertyConfigurator.configure("log4j.properties");
+		Configuration conf = HBaseConfiguration.create();
+		conf.addResource(new Path("hbase-site.xml"));
+
+		Connection connection = ConnectionFactory.createConnection(conf);
+		Table table = connection.getTable(TableName.valueOf("cdb_vessel:vessel"));
+
+		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
+		ImportReducer.getVesselType(table, 316255);
 		
-		byte[] details = Bytes.toBytes("details");
-		byte[] speed = Bytes.toBytes("speed");
-		byte[] destination = Bytes.toBytes("destination");
-		byte[] timestamp = Bytes.toBytes("timestamp");
-		byte[] coordinates = Bytes.toBytes("coordinates");
-		byte[] entrytime = Bytes.toBytes("entertime");
-		byte[] exittime = Bytes.toBytes("exittime");
-		byte[] entrycoordinates = Bytes.toBytes("entercoordinates");
-		byte[] exitcoordinates = Bytes.toBytes("exitcoordinates");
+		connection.close();
+	}
+	
+	
+	public static void unittest_reducer() throws Exception
+	{
 		
 		File WorkingFile=new File("D:\\test\\VTCurrentLocation\\51235.csv");
-		
 		VesselZone.ZoneMap=VesselZone.DownloadAllZonesHbase();
 
 		ArrayList<TextArrayWritable> LocationList=new ArrayList<TextArrayWritable>();
@@ -716,7 +898,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			String[] nextrow=CSVP.parseLine(strRow);
 						
 			
-			long IMO=Long.parseLong(nextrow[0].trim());
+			long IMO=Long.parseLong(nextrow[1].trim());
 			String recordTime=nextrow[21].trim().substring(0, 19);
 			
 			ParsePosition pos = new ParsePosition(0);
@@ -741,22 +923,40 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			strRow = BR.readLine();
 		}
 		
-
-		///////////////////////////////////////////
+		
+		Connection connection = null;
+		BufferedMutator VTLocation = null;
+		BufferedMutator VTEvent = null;
+		BufferedMutator VTVessel = null;
+		BufferedMutator LastLocation_BM = null;
+		
+		Table VTLocation_Table = null;
+		Table VTEvent_Table = null;
+		Table Vessel_Table=null;
+		Table LastLocation_Table=null;
+		
+		HashMap<Integer, VesselZone> Zonemap;		
+		
+		byte[] details = Bytes.toBytes("details");
+		byte[] speed = Bytes.toBytes("speed");
+		byte[] destination = Bytes.toBytes("destination");
+		byte[] timestamp = Bytes.toBytes("timestamp");
+		byte[] coordinates = Bytes.toBytes("coordinates");
+		byte[] entrytime = Bytes.toBytes("entertime");
+		byte[] exittime = Bytes.toBytes("exittime");
+		byte[] entrycoordinates = Bytes.toBytes("entercoordinates");
+		byte[] exitcoordinates = Bytes.toBytes("exitcoordinates");
+		byte[] TYPE = Bytes.toBytes("TYPE");
+		byte[] ves = Bytes.toBytes("ves");
+		byte[] lastlocation=Bytes.toBytes("lastlocation");		
+		byte[] imo=Bytes.toBytes("imo");
+		
+		// TODO Auto-generated method stub
 		PropertyConfigurator.configure("log4j.properties");
 		Configuration conf = HBaseConfiguration.create();
 		conf.addResource(new Path("hbase-site.xml"));
+		connection = ConnectionFactory.createConnection(conf);
 
-		BufferedMutator VTLocation = null;
-		BufferedMutator VTEvent = null;
-		Table VTLocation_Table = null;
-		Table VTEvent_Table = null;
-		Table Vessel_Table = null;
-		
-		HashMap<Integer, VesselZone> Zonemap;
-		
-		Connection connection = ConnectionFactory.createConnection(conf);
-		
 		TableName VtLocation_Name = TableName
 				.valueOf("cdb_vessel:vessel_location");
 		VTLocation = connection.getBufferedMutator(VtLocation_Name);
@@ -769,10 +969,26 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		
 		TableName Vessel_Name = TableName
 				.valueOf("cdb_vessel:vessel");
+		VTVessel = connection.getBufferedMutator(Vessel_Name);
 		Vessel_Table = connection.getTable(Vessel_Name);
+		
+		TableName LastLocation_Name = TableName
+				.valueOf("cdb_vessel:latest_location");
+		LastLocation_BM=connection.getBufferedMutator(LastLocation_Name);
+		LastLocation_Table = connection.getTable(LastLocation_Name);			
+		
+		try {
+			File Zonemapfile=new File("VesselZone");
+			ObjectInputStream OIS= new ObjectInputStream(new FileInputStream(Zonemapfile));
+			Zonemap= (HashMap<Integer, VesselZone>)OIS.readObject();
+			OIS.close();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		//////////////////////////////////////////
-		String IMO_str = padNum(key.getIMO().get(), 7);
+
+		String IMO_str = LpadNum(key.getIMO().get(), 7);
 		VLongWritable pos_time = key.getRecordTime();
 
 		// //////////////////////////////////////////////////////////////////////////////
@@ -801,7 +1017,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		if (LastLocation!=null)
 		{
 		//Get all events with exit at last location
-			PreviousZoneEvents =ImportReducer. getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
+			PreviousZoneEvents = ImportReducer.getAllEventsWithExistAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
 		}
 		else
 		{
@@ -830,7 +1046,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 						.getTime();
 
 				byte[] rowkey = Bytes.toBytes(IMO_str
-						+ padNum(Long.MAX_VALUE - record_time, 19));
+						+ LpadNum(Long.MAX_VALUE - record_time, 19));
 				Put put = new Put(rowkey);
 
 				put.addColumn(details, speed, Bytes.toBytes(Speed));
@@ -858,22 +1074,69 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			AllAfterPoints.add(newlocation);
 		}
 		
-		VTLocation.flush();
-		
 		//sort AllAfterPoints
 		java.util.Collections.sort(AllAfterPoints);
 		
 		//dedup
 		AllAfterPoints=ImportReducer.dedup(AllAfterPoints);
 		
+		
+		/////////////////////////////////////////////////////////////////////
+		//Store latest location
+		//rowkey: global zone id (4)+ longlat22 ((long11(sign(1)+integer(3)+digit(7)))(lat11(sign(1)+integer(3)+(7))))+imo(7)+recordtime(19)
+		/////////////////////////////////////////////////////////////////////			
+		VesselLocation lastLocation=AllAfterPoints.get(AllAfterPoints.size()-1);	
+		Vessel thisVessel=ImportReducer.getVesselType(Vessel_Table, key.getIMO().get());
+		
+		String[] longlat=lastLocation.coordinates.split(",");
+		GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory(null);
+		Coordinate coord = new Coordinate(Double.parseDouble(longlat[0]), Double.parseDouble(longlat[1]));
+		Point point = geometryFactory.createPoint(coord);
+
+		Integer BelongedGlobalZoneIndex=null;
+
+		for (int i=0 ; i<VesselZone.GlobalZones.length ; i++)
+		{
+			if (VesselZone.GlobalZones[i].covers(point))
+			{
+				BelongedGlobalZoneIndex=i;
+				break;
+			}
+		}
+		
+		if (thisVessel.LastLocation!=null)
+		{
+			LastLocation_BM.mutate(new Delete(thisVessel.LastLocation));
+		}
+		
+		byte[] lastlocationrowkey = Bytes.toBytes(LpadNum(BelongedGlobalZoneIndex,4) + ImportReducer.ConvertCoordinatesToStr(longlat[0])+ImportReducer.ConvertCoordinatesToStr(longlat[1]));
+		Put lastlocation_put=new Put(lastlocationrowkey);	
+		lastlocation_put.addColumn(details, imo, Bytes.toBytes(IMO_str));
+		lastlocation_put.addColumn(details, timestamp, Bytes.toBytes(rawformatter.format(new Date(lastLocation.recordtime))));
+		LastLocation_BM.mutate(lastlocation_put);
+		LastLocation_BM.flush();
+		
+		//update vessel lastlocation
+		Put vessel_lastlocation=new Put(Bytes.toBytes(String.valueOf(key.getIMO().get())));
+		vessel_lastlocation.addColumn(ves, lastlocation, lastlocationrowkey);
+		VTVessel.mutate(vessel_lastlocation);
+		VTVessel.flush();
+		
+		////////////////////////////////////////////////////////////////////
+		
 		ArrayList<VesselEvent> DerivedEventList=new ArrayList<VesselEvent>();
 		
-		String VesselType=ImportReducer.getVesselType(Vessel_Table, key.getIMO().get());
+
+		if (thisVessel.VesselType ==null)
+		{
+			//context.getCounter(Counters.VESSEL_WITHOUTTYPE).increment(1);
+			return;
+		}
 		
 		//calculating event
 		for (VesselLocation VL : AllAfterPoints)
 		{
-			ArrayList<Integer> CurrentZones = ImportReducer.LocateCurrentZone(VL.coordinates ,VesselType,null);
+			ArrayList<Integer> CurrentZones = ImportReducer.LocateCurrentZone(VL.coordinates ,thisVessel.VesselType, VesselZone.ZoneMap);
 			
 			Iterator<Map.Entry<Integer, VesselEvent>> it = PreviousZoneEvents.entrySet().iterator();  
 			
@@ -922,7 +1185,7 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 					NewEvent.entrytime=VL.recordtime;
 					NewEvent.exitcoordinates=VL.coordinates;
 					NewEvent.exittime=VL.recordtime;
-					NewEvent.destination=VL.destination;
+					NewEvent.destination=VL.destination;		
 					NewEvent.polygonid=thisZone_Axsmarine_id;
 					
 					PreviousZoneEvents.put(thisZone_Axsmarine_id, NewEvent);
@@ -933,17 +1196,20 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			}		
 		}
 		
+
+		
+		
 		//pupulate Derived Events into Hbase
 		
 		for (VesselEvent newEvent : DerivedEventList)
 		{
-		    //rowkey: imo(7)+timestamp(19 desc)+polygonid(8)
+		    //rowkey: IMO(7)+timestamp(19 desc)+polygonid(8)
 		    //qualifier:entrytime,entrycoordinates,exittime,exitcoordinates,destination
 			
 			//context.getCounter(Counters.EVENT_UPSERTS ).increment(1);
 			
 			byte[] rowkey = Bytes.toBytes(IMO_str
-					+ padNum(Long.MAX_VALUE - newEvent.entrytime, 19)+padNum(newEvent.polygonid,10));
+					+ LpadNum(Long.MAX_VALUE - newEvent.entrytime, 19)+LpadNum(newEvent.polygonid,10));
 			Put put = new Put(rowkey);
 
 			put.addColumn(details, entrytime, Bytes.toBytes(rawformatter.format(new Date(newEvent.entrytime))));
@@ -954,57 +1220,22 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 			VTEvent.mutate(put);
 			//context.getCounter(Counters.EVENT_VALID).increment(1);				
-		}		
+		}
 		
-		
-		VTEvent.flush();
-		
-	}
-	 
 	
-	public static void unittest_getLocationBefore() throws Exception
-	{
-		PropertyConfigurator.configure("log4j.properties");
-		Configuration conf = HBaseConfiguration.create();
-		conf.addResource(new Path("hbase-site.xml"));
-
-		Connection connection = ConnectionFactory.createConnection(conf);
-		Table table = connection.getTable(TableName.valueOf("cdb_vessel",
-				"vessel_location"));
-
-		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
-
-		ImportReducer.getLocationBefore(table, 3162, rawformatter.parse("2015-10-19T00:35:03.311Z", new ParsePosition(0)).getTime());
-		connection.close();
-	}
-
-	public static void unittest_getForVesselType() throws Exception
-	{
-		PropertyConfigurator.configure("log4j.properties");
-		Configuration conf = HBaseConfiguration.create();
-		conf.addResource(new Path("hbase-site.xml"));
-
-		Connection connection = ConnectionFactory.createConnection(conf);
-		Table table = connection.getTable(TableName.valueOf("cdb_vessel:vessel"));
-
-		//ImportReducer.deleteEventsStartAfter(table, padNum(3162, 7), formatter.parse("2014-01-18T00:05:24Z", new ParsePosition(0)).getTime());
-		ImportReducer.getVesselType(table, 316255);
-		
-		connection.close();
 	}
 
 	
-	public static void main(String[] args) {
-
+	public static void main(String[] args) throws Exception {
+				
 		try {
 
 			int exitCode = ToolRunner.run(
 					new ImportVTLocationFromFileWithReducer(), args);
-			System.exit(exitCode);
+
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
 	}
 }
