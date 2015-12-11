@@ -112,7 +112,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		private Table VTLocation_Table = null;
 		private Table VTEvent_Table = null;
 		private Table Vessel_Table=null;
-		private Table LastLocation_Table=null;
 		
 		private HashMap<Integer, VesselZone> Zonemap;
 		
@@ -172,8 +171,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			TableName LastLocation_Name = TableName
 					.valueOf("cdb_vessel:latest_location");
 			LastLocation_BM=connection.getBufferedMutator(LastLocation_Name);
-			LastLocation_Table = connection.getTable(LastLocation_Name);			
-			
 			
 			
 			try {
@@ -210,11 +207,11 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				// remove all events start after the first new location.
 				deleteEventsStartAfter(VTEvent_Table, IMO_str,pos_time.get());
 				
-				if (LastLocation!=null)
-				{
-					//update existing events that started BEFORE the first new location and end after the first to end as the last location
-					updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
-				}
+//				if (LastLocation!=null)
+//				{
+//					//update existing events that started BEFORE the first new location and end after the first to end as the last location
+//					updateExistingEventsToEndAtLastLocation(VTEvent_Table,key.getIMO().get(),LastLocation);
+//				}
 			}
 			
 			Map<Integer, VesselEvent> PreviousZoneEvents;
@@ -325,7 +322,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			Put vessel_lastlocation=new Put(Bytes.toBytes(String.valueOf(key.getIMO().get())));
 			vessel_lastlocation.addColumn(ves, lastlocation, lastlocationrowkey);
 			VTVessel.mutate(vessel_lastlocation);
-			VTVessel.flush();
 			
 			////////////////////////////////////////////////////////////////////
 			
@@ -654,13 +650,13 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		//Get all events with exit at last location
 		public static Map<Integer,VesselEvent> getAllEventsWithExistAtLastLocation(Table VTEvent_Table, long imo, VesselLocation lastlocation) throws IOException
 		{
-			Scan getAllEventsWithExistAtLastLocation=new Scan();;
+			Scan getAllEventsWithExistAtLastLocation=new Scan();
 			getAllEventsWithExistAtLastLocation
 			.setStartRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE - lastlocation.recordtime, 19)+"0000000000"))
 			.setStopRow(Bytes.toBytes(LpadNum(imo,7)+LpadNum(Long.MAX_VALUE, 19)+"9999999999"))
 			.addColumn(details, exittime);
 			
-			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.EQUAL,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
+			Filter ExistTimeValuefilter =new ValueFilter(CompareFilter.CompareOp.GREATER_OR_EQUAL ,new BinaryComparator(Bytes.toBytes(rawformatter.format(new Date(lastlocation.recordtime)))));
 			getAllEventsWithExistAtLastLocation.setFilter(ExistTimeValuefilter);
 			
 			ResultScanner Result_event = VTEvent_Table.getScanner(getAllEventsWithExistAtLastLocation);
@@ -670,11 +666,17 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 			for (Result res : Result_event) {
 				
 				Get get = new Get(res.getRow());
+				get.addColumn(details, entrytime);
+				get.addColumn(details, entrycoordinates);
+				
 				Result result = VTEvent_Table.get(get);
 				String rowkey = Bytes.toString(result.getRow());
 				String polygonid = rowkey.substring(26);
 
 				VesselEvent VE = new VesselEvent();
+				VE.exittime = lastlocation.recordtime;
+				VE.exitcoordinates = lastlocation.coordinates;	
+				VE.destination = lastlocation.destination;
 				VE.polygonid = Integer.parseInt(polygonid);
 
 				for (Cell cell : result.rawCells()) {
@@ -688,15 +690,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 						VE.entrytime = rawformatter.parse(Value, pos).getTime();
 					} else if (Qualifier.equals("entercoordinates")) {
 						VE.entrycoordinates = Value;
-					} else if (Qualifier.equals("exittime")) {
-						VE.exittime = rawformatter.parse(Value, pos).getTime();
-						;
-					} else if (Qualifier.equals("exitcoordinates")) {
-						VE.exitcoordinates = Value;
-					} else if (Qualifier.equals("destination")) {
-						VE.destination = Value;
 					}
 				}
+				
 				events.put(VE.polygonid, VE);
 			}
 
