@@ -5,9 +5,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
-import java.text.DateFormat;
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
+
 
 import au.com.bytecode.opencsv.CSVParser;
 
@@ -22,12 +20,15 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit;
+import org.joda.time.DateTime; 
+import org.joda.time.format.DateTimeFormat; 
+import org.joda.time.format.DateTimeFormatter;
 
 
 
 public class VesselLocationRecordReader extends RecordReader<Key_IMOAndRecordTime, TextArrayWritable> {
 
-	private static DateFormat rawformatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	private static DateTimeFormatter  rawformatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss");
 
 	private Key_IMOAndRecordTime key= new Key_IMOAndRecordTime();
 	private TextArrayWritable value = new TextArrayWritable();
@@ -149,10 +150,10 @@ public class VesselLocationRecordReader extends RecordReader<Key_IMOAndRecordTim
 
 				String recordTime=nextrow[21].trim().substring(0, 19);
 
-				ParsePosition pos = new ParsePosition(0);
-				long record_time=rawformatter.parse(recordTime, pos).getTime();
+				
+				DateTime record_time_datetime=DateTime.parse(recordTime, rawformatter);
 
-				key.set(new VLongWritable(IMO), new VLongWritable(record_time));
+				key.set(new VLongWritable(IMO), new VLongWritable(record_time_datetime.getMillis()));
 
 				Text[] allfields=new Text[nextrow.length];
 

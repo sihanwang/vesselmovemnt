@@ -3,9 +3,12 @@ package com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.type;
 public class VesselLocation implements Comparable{
 
 	public String coordinates;
-	public double speed;
+	public String speed;
 	public long recordtime;
 	public String destination;
+	public String previouslocation;
+	public String nextlocation;
+	
 	@Override
 	
     public int compareTo(Object o) {

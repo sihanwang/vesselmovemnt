@@ -6,8 +6,10 @@ import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.io.ParseException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -30,7 +32,7 @@ import org.geotools.geometry.jts.WKTReader2;
 public class VesselZone implements Serializable {
 
 	public static Geometry[] GlobalZones;
-
+	
 	static {
 		
 		int num=9;
@@ -72,6 +74,7 @@ public class VesselZone implements Serializable {
 					
 				}
 			}
+			
 						
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
@@ -183,12 +186,12 @@ public class VesselZone implements Serializable {
 
 		for (Result res : zone_scanner) {
 
-			int polygon_id = Integer.parseInt(Bytes.toString(res.getRow()));
+			int polygon_id = Integer.parseInt(Bytes.toString(res.getRow()));	
 			String name = null;
 			Geometry polygon = null;
 			String type = null;
 			ArrayList<Integer> IntersectedGlobalZones = new ArrayList<Integer>();
-
+			
 			for (Cell cell : res.rawCells()) {
 				String Qualifier = Bytes
 						.toString(CellUtil.cloneQualifier(cell));
@@ -196,8 +199,10 @@ public class VesselZone implements Serializable {
 
 				if (Qualifier.equals("name")) {
 					name = Value;
+
 				} else if (Qualifier.equals("polygon")) {
 					polygon = createPolygonByWKT(geometryFactory, Value);
+								
 					for (int i = 0; i < GlobalZones.length; i++) {
 						if (polygon.intersects(GlobalZones[i])) {
 							IntersectedGlobalZones.add(i);
