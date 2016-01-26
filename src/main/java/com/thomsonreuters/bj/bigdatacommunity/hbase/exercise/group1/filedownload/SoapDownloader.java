@@ -11,7 +11,10 @@ import javax.xml.soap.SOAPException;
 import javax.xml.soap.SOAPMessage;
 
 import org.apache.commons.io.IOUtils;
+import org.joda.time.DateTime;
 
+import java.util.LinkedHashSet;
+import java.util.TreeMap;
 
 
 
@@ -107,8 +110,21 @@ public class SoapDownloader  {
 
     }
 
+    protected TreeMap<String, byte[]> getContent() throws Exception {
+        addSingleToRequests();
+        final TreeMap<String, byte[]> contentMap = new TreeMap<>();
+        
+        for (final SoapRequest request : requests) {
+        	InputStream is= soapService.sendRequest(request.getMessage(), request.getEndpoint(), proxy, proxyPort);
+            byte[] content = IOUtils.toByteArray(is);
+            contentMap.put(request + "_" + new DateTime().toString("YYYYMMdd'T'HHmmssSSS"), content);        	
+        }
+        return contentMap;
+    }    
 
-
+    public byte[] getBytesContent() throws Exception {
+        return getContent().firstEntry().getValue();
+    }
 
     private void addSingleToRequests() {
         if (message != null && endPoint != null) {
@@ -174,4 +190,8 @@ class SoapRequest {
         }
         return request.message.equals(message) && request.endpoint.equals(endpoint);
     }
+    
+
+    
+
 }

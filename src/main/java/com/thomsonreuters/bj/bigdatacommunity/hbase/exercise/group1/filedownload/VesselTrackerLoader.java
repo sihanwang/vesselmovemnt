@@ -2,6 +2,7 @@ package com.thomsonreuters.bj.bigdatacommunity.hbase.exercise.group1.filedownloa
 
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -19,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.TimeZone;
+import java.util.zip.GZIPInputStream;
 
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
@@ -31,6 +33,7 @@ import javax.xml.soap.SOAPElement;
 import javax.xml.soap.SOAPEnvelope;
 import javax.xml.soap.SOAPMessage;
 
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import org.joda.time.DateTime;
@@ -49,7 +52,7 @@ public class VesselTrackerLoader {
     private static final String INITURL = "http://webservice.vesseltracker.com:80/webservices/GlobalSatExport";
     private static final String WS_NS = "http://webservice.vesseltracker.com/";
     public static Logger log;
-    public static String cfgPath = System.getProperty("user.dir")+ "/conf";
+    public static String cfgPath = "/home/hdev/8003662/hbase/lib/conf";
     public static boolean initTick = true;
     private String lastTick;
 
@@ -86,21 +89,7 @@ public class VesselTrackerLoader {
         } 
 
     }
-
-    public String readStoragePath() throws IOException {
-
-        String path = cfgPath + "/StoragePath.txt";
-        File file = new File(path);
-        InputStream input = new FileInputStream(file);
-        try {
-            byte[] b = new byte[(int) file.length()];
-            input.read(b);
-            return new String(b, Charset.forName("UTF-8"));
-        } finally {
-            input.close();
-        } 
-
-    }
+    
     public void wirteTick(long tick) throws IOException {
 
         String path = cfgPath + "/Tick.txt";
@@ -132,19 +121,19 @@ public class VesselTrackerLoader {
         long tick = readTick();
        
         SOAPMessage soapMessage = generateMessage(tick, usr, pwd);
-        String content = soapDownloader.withMessage(soapMessage).withEndPoint(INITURL)
+        byte[] byteContent = soapDownloader.withMessage(soapMessage).withEndPoint(INITURL)
         //  .withReadTimeoutInSeconds(1000)
-                .getTextContent();
+                .getBytesContent();
+        byte[] XMLContentBytes = unGzip(byteContent);
 
-       
-        //        FileWriter fw = new FileWriter("D:/response.txt");  
-        //        fw.write(content);
-        //        fw.flush();
+        InputStream byteStream = new ByteArrayInputStream(XMLContentBytes);
+//      FileWriter fw = new FileWriter("D:/response.txt");  
+//      fw.write(content);
+//      fw.flush();
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        StringReader sr = new StringReader(content);
-        InputSource is = new InputSource(sr);
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      InputSource is = new InputSource(byteStream);
         Document document = builder.parse(is);
    
         Element root = document.getDocumentElement();
@@ -286,4 +275,16 @@ public void moveFile()
 
         return soapMessage;
     }
+    
+    private byte[] unGzip(byte[] gzipXMLContentBytes) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try{
+            IOUtils.copy(new GZIPInputStream(new ByteArrayInputStream(gzipXMLContentBytes)), out);
+        }catch(java.util.zip.ZipException ex){
+            return null;
+        } catch(IOException e){
+            throw new RuntimeException(e);
+        }
+        return out.toByteArray();
+    }    
 }

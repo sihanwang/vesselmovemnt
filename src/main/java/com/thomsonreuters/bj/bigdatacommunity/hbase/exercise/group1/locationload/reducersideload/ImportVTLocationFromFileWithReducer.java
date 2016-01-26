@@ -1176,11 +1176,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 
 	public int run(String[] args) throws Exception {
 		// TODO Auto-generated method stub
-		if (args.length != 3) {
-			System.out.println("please input file location and reduce job number and type");
-			return -1;
-		}
-		// TODO Auto-generated method stub
 
 		Job job = Job.getInstance(getConf(),
 				"Import vessel locations from files in " + args[0]
@@ -1227,7 +1222,9 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 	}
 	
 	
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception 
+	{
+
 
 		if (args[args.length-1].equals("history"))
 		{
@@ -1265,8 +1262,6 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 				VesselTrackerLoader.log.error("e.printStackTrace();");
 			}			
 		}
-
-
 	}
 	
 	
