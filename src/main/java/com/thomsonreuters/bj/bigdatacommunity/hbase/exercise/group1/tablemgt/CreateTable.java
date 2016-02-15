@@ -30,7 +30,7 @@ public class CreateTable {
 	    Admin admin = connection.getAdmin();
 	    
 	    
-	    
+	    /*
 	    ////////////////////////////////////////////////////
 	    //create vessel location table
 	    //rowkey: imo(7)+timestamp(19 desc)
@@ -114,8 +114,24 @@ public class CreateTable {
 
 	    boolean avail_trackinfo = admin.isTableAvailable(tableName_trackinfo);
 	    System.out.println("The availability of table vessel_track_info: " + avail_trackinfo);
+	    */
 	    
+	    ////////////////////////////////////////////////////	    
+	    //create time view table
+	    //rowkey: region(6)+time(10)+imo(7)
+	    //qualifier:firstrecordtime,lastrecordtime
+	    TableName tableName_timeview = TableName.valueOf("cdb_vessel", "time_view");
+	    HTableDescriptor desc_timeview = new HTableDescriptor(tableName_timeview);
+	    HColumnDescriptor coldef_timeview = new HColumnDescriptor(
+	  	      Bytes.toBytes("details"));
+	    coldef_timeview.setMaxVersions(1);
+	    coldef_timeview.setCompressionType(Compression.Algorithm.SNAPPY);
+	  	  desc_timeview.addFamily(coldef_timeview);
 	    
+	  	admin.createTable(desc_timeview);
+	    boolean avail_timeview = admin.isTableAvailable(tableName_timeview);
+	    System.out.println("The availability of table time_view: " + avail_timeview);
+	  	
 	    
 	    
 	  }

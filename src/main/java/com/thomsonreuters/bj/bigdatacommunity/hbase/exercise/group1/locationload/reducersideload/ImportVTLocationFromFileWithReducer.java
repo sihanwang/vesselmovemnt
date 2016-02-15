@@ -61,7 +61,6 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.log4j.PropertyConfigurator;
 import org.geotools.factory.FactoryRegistryException;
 import org.geotools.geometry.jts.JTSFactoryFinder;
 
@@ -1242,8 +1241,10 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 		else
 		{
 			VesselTrackerLoader vl = new VesselTrackerLoader();
-			try {
-				while (true) {
+			
+			while (true) {
+
+				try {
 					if (vl.load())
 
 					{
@@ -1251,16 +1252,17 @@ public class ImportVTLocationFromFileWithReducer extends Configured implements
 						vl.moveFile();
 					}
 
-					Thread.sleep(2 * 60 * 1000);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 
-				}
+				}	
 
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				Thread.sleep(2 * 60 * 1000);
 
-				VesselTrackerLoader.log.error("e.printStackTrace();");
-			}			
+			}
+
+					
 		}
 	}
 	
